@@ -1,0 +1,99 @@
+version: '3.8'
+
+services:
+  # MCP OSQuery Server (STDIO mode)
+  mcp-server:
+    build: 
+      context: ..
+      dockerfile: deployment/Dockerfile
+    container_name: mcp-osquery-server
+    restart: unless-stopped
+    environment:
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - ../logs:/app/logs
+      - osquery-data:/var/log/osquery
+    networks:
+      - osquery-net
+    healthcheck:
+      test: ["CMD", "python", "-c", "import mcp_osquery_server.osquery_tools; print('healthy')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  # LangGraph Runtime Service
+  langgraph-service:
+    build: 
+      context: ..
+      dockerfile: deployment/Dockerfile
+    container_name: langgraph-osquery
+    restart: unless-stopped
+    command: ["python", "examples/langgraph_example.py", "--interactive"]
+    environment:
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - ../logs:/app/logs
+      - osquery-data:/var/log/osquery
+    networks:
+      - osquery-net
+    depends_on:
+      mcp-server:
+        condition: service_healthy
+
+  # LangChain Agent Service
+  langchain-agent:
+    build: 
+      context: ..
+      dockerfile: deployment/Dockerfile
+    container_name: langchain-agent
+    restart: unless-stopped
+    command: ["python", "examples/langchain_agent.py", "--interactive"]
+    environment:
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - ../logs:/app/logs
+      - osquery-data:/var/log/osquery
+    networks:
+      - osquery-net
+    depends_on:
+      mcp-server:
+        condition: service_healthy
+
+  # Monitoring Dashboard (Optional)
+  monitoring:
+    image: prom/prometheus:latest
+    container_name: osquery-monitoring
+    restart: unless-stopped
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus-data:/prometheus
+    networks:
+      - osquery-net
+    profiles:
+      - monitoring
+
+  # Log Aggregator
+  log-collector:
+    image: fluent/fluent-bit:latest
+    container_name: log-collector
+    restart: unless-stopped
+    volumes:
+      - ../logs:/var/log/app:ro
+      - ./logging/fluent-bit.conf:/fluent-bit/etc/fluent-bit.conf
+    networks:
+      - osquery-net
+    profiles:
+      - logging
+
+volumes:
+  osquery-data:
+    driver: local
+  prometheus-data:
+    driver: local
+
+networks:
+  osquery-net:
+    driver: bridge

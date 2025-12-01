@@ -1,0 +1,45 @@
+# Prometheus configuration for OSQuery MCP monitoring
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+rule_files:
+  - "rules/*.yml"
+
+scrape_configs:
+  # Self-monitoring
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # OSQuery Server metrics (if metrics endpoint is added)
+  - job_name: 'mcp-osquery'
+    static_configs:
+      - targets: ['mcp-server:8080']
+    metrics_path: /metrics
+    scrape_interval: 30s
+
+  # Container metrics
+  - job_name: 'docker'
+    static_configs:
+      - targets: ['host.docker.internal:9323']
+    scrape_interval: 30s
+
+  # System metrics via node_exporter (optional)
+  - job_name: 'node'
+    static_configs:
+      - targets: ['node-exporter:9100']
+    scrape_interval: 30s
+
+# Alerting rules
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+          - alertmanager:9093
+
+# Storage
+storage:
+  tsdb:
+    retention.time: 30d
+    retention.size: 10GB
