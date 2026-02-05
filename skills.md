@@ -1,0 +1,1 @@
+https://www.cdata.com/blog/mcp-skills-part-2-building-skills

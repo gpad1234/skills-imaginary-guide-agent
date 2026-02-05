@@ -139,6 +139,30 @@ async def list_tools() -> list[Tool]:
                 "required": ["sql"]
             }
         ),
+        Tool(
+            name="check_system_health",
+            description="Get comprehensive system health check including CPU, memory, disk, top processes, and network status using psutil",
+            inputSchema={
+                "type": "object",
+                "properties": {},
+                "required": []
+            }
+        ),
+        Tool(
+            name="get_top_processes",
+            description="Get top memory-consuming processes with detailed resource usage",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "limit": {
+                        "type": "integer",
+                        "description": "Number of processes to return (default: 10)",
+                        "default": 10
+                    }
+                },
+                "required": []
+            }
+        ),
     ]
 
 
@@ -188,6 +212,53 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> CallToolResult:
                     isError=True
                 )
             result = osquery_tools.custom_query(sql)
+        
+        elif name == "check_system_health":
+            # Run the system health skill script
+            import subprocess
+            import os
+            import sys
+            script_path = os.path.join(os.path.dirname(__file__), "..", ".claude", "skills", "system-health", "scripts", "check_system_health.py")
+            proc_result = subprocess.run(
+                [sys.executable, script_path],
+                capture_output=True,
+                text=True,
+                timeout=10
+            )
+            if proc_result.returncode == 0:
+                return CallToolResult(
+                    content=[TextContent(type="text", text=proc_result.stdout)],
+                    isError=False
+                )
+            else:
+                return CallToolResult(
+                    content=[TextContent(type="text", text=f"Error: {proc_result.stderr}")],
+                    isError=True
+                )
+        
+        elif name == "get_top_processes":
+            # Run the top processes skill script
+            import subprocess
+            import os
+            import sys
+            limit = arguments.get("limit", 10)
+            script_path = os.path.join(os.path.dirname(__file__), "..", ".claude", "skills", "top-processes", "scripts", "get_top_processes.py")
+            proc_result = subprocess.run(
+                [sys.executable, script_path, "--limit", str(limit)],
+                capture_output=True,
+                text=True,
+                timeout=10
+            )
+            if proc_result.returncode == 0:
+                return CallToolResult(
+                    content=[TextContent(type="text", text=proc_result.stdout)],
+                    isError=False
+                )
+            else:
+                return CallToolResult(
+                    content=[TextContent(type="text", text=f"Error: {proc_result.stderr}")],
+                    isError=True
+                )
         
         else:
             return CallToolResult(

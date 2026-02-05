@@ -1,0 +1,6 @@
+# Python system monitoring library
+psutil>=5.9.0
+
+# Uses parent project's requirements.txt for other dependencies
+# If running standalone:
+# mcp>=1.0.0
